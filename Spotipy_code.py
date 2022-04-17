@@ -2,6 +2,8 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import requests 
 import json 
+import sqlite3
+import os
 
 #scope = "user-library-read"
 
@@ -10,35 +12,47 @@ from spotipy.oauth2 import SpotifyClientCredentials
 client_credentials_manager = SpotifyClientCredentials(client_id='58594f38045e4e0389f0e52dca5df990', client_secret='e8acf222626b4f129cde3a55778e66e6')
 sp = spotipy.Spotify(client_credentials_manager = client_credentials_manager)
 
-#export SPOTIPY_CLIENT_ID='58594f38045e4e0389f0e52dca5df990'
-#export SPOTIPY_CLIENT_SECRET='e8acf222626b4f129cde3a55778e66e6'
-#export SPOTIPY_REDIRECT_URI='https://www.spotify.com/us/'
+#print(sp.artist_top_tracks('13y7CgLHjMVRMDqxdx0Xdo', 'US'))
 
-#how many plays an artist is getting on spotify#
 artist_link = "https://open.spotify.com/artist/13y7CgLHjMVRMDqxdx0Xdo?si=cTv72xSSQBWmobHO9GmjHQ" #gucci mane
-artist = sp.artist(artist_link)
-#artist_data = artist.json()
-#print(artist)
-artist_id = requests.get(artist_link).json()
-#print(json.dumps(artist_id, indent = 2))
-#print (artist_id)
-#playlist_URI = playlist_link.split("/")[-1].split("?")[0]
-#track_uris = [x["track"]["uri"] for x in sp.playlist_tracks(playlist_URI)["items"]]
 
 
-'''def SpotifySearch(search_term):
-    #only music tracks
-    website = requests.get('https://itunes.apple.com/search', params = {'term':search_term,
-                                                                        'media':'music',
-                                                                
-        
-    })
-    term_data = website.json()
-#     print(term_data)
-song_lst = [] #lst of dictionaries returned by iTunessearch
-user_input = input('Enter a search term (or "done" to stop): ')
-while True:
-    if user_input == 'done':
-        break
-    else:
-        song_lst += (iTunesSearch(user_input))'''
+#getting artist data, song names, and each of their popularity levels
+
+def ArtistData(artistlink):
+    artist = sp.artist(artistlink) #json
+    #print(artist)
+    artist_id = artist['id']
+    results = sp.artist_top_tracks(artist_id)
+    track_info = results['tracks']
+    #print(track_info)
+    lst = []
+    for track in track_info:
+        trackname = track['name']
+        trackpop = track['popularity']
+        lst.append((trackname,trackpop)) 
+    #print(lst)
+    sorted_lst = sorted(lst, key = lambda x:x[1], reverse = True)
+    #print(sorted_lst)
+    return sorted_lst
+
+def setUpDatabase(db_name):
+    path = os.path.dirname(os.path.abspath(__file__))
+    conn = sqlite3.connect(path+'/'+db_name)
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS Tracks")
+    cur.execute('CREATE TABLE Tracks (name TEXT, popularity INTEGER)')
+    lst = ArtistData(artist_link)
+    #print(lst)
+    for item in lst:
+        #print(item)
+        cur.execute("INSERT OR IGNORE INTO Tracks (name, popularity) VALUES (?,?)" ,
+        (item[0],item[1]))
+    conn.commit()
+    
+
+
+ArtistData(artist_link)
+setUpDatabase('Tracks.db')
+
+
